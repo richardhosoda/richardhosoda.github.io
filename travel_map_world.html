@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訪問地マップ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', serif;
+    background: #f4f0eb;
+    color: #2c2c2c;
+  }
+  h1 {
+    text-align: center;
+    padding: 18px 0 4px;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    color: #1a1a1a;
+    font-weight: normal;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 10px;
+    letter-spacing: 0.05em;
+  }
+  #map-world, #map-usa {
+    width: 96%;
+    margin: 0 auto 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  #map-world { height: 430px; }
+  #map-usa   { height: 480px; }
+  .map-label {
+    width: 96%;
+    margin: 0 auto 6px;
+    font-size: 14px;
+    color: #444;
+    letter-spacing: 0.04em;
+    padding-left: 4px;
+    border-left: 3px solid #888;
+    padding-left: 8px;
+  }
+  .legend {
+    width: 96%;
+    margin: 0 auto 14px;
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: #555;
+    padding-left: 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-dot {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 1.5px solid rgba(0,0,0,0.15);
+    flex-shrink: 0;
+  }
+  footer {
+    text-align: center;
+    padding: 10px 0 18px;
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 0.05em;
+  }
+  /* Leaflet popup style */
+  .leaflet-popup-content-wrapper {
+    border-radius: 6px;
+    font-family: 'Georgia', serif;
+    font-size: 13px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  }
+  .pop-title { font-weight: bold; font-size: 14px; margin-bottom: 3px; color: #111; }
+  .pop-type  { font-size: 12px; color: #666; }
+</style>
+</head>
+<body>
+
+<h1>私の訪問地マップ</h1>
+<div class="subtitle">仕事・家族旅行で訪れた場所</div>
+
+<!-- WORLD MAP -->
+<div class="map-label">🌏 世界地図</div>
+<div id="map-world"></div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2e9e6b"></div>家族旅行</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2c72c7"></div>出張</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c94f7c"></div>両方</div>
+</div>
+
+<!-- USA MAP -->
+<div class="map-label">🗺️ アメリカ・カナダ 詳細</div>
+<div id="map-usa"></div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2e9e6b"></div>家族旅行</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2c72c7"></div>出張</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c94f7c"></div>両方</div>
+</div>
+
+<footer>ホームページ用 — 各ピンをクリックで詳細表示</footer>
+
+<script>
+// ---- Tile layer: CartoDB Positron (clean white/light map) ----
+const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const tileAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
+
+// ---- Marker factory ----
+function makeIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:14px; height:14px; border-radius:50%;
+      background:${color};
+      border:2px solid rgba(255,255,255,0.9);
+      box-shadow:0 1px 4px rgba(0,0,0,0.35);
+    "></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+function makeLargeIcon(color, label) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative; display:inline-block;">
+      <div style="
+        width:14px; height:14px; border-radius:50%;
+        background:${color};
+        border:2.5px solid rgba(255,255,255,0.95);
+        box-shadow:0 1px 5px rgba(0,0,0,0.4);
+      "></div>
+      <span style="
+        position:absolute;
+        left:18px; top:-1px;
+        white-space:nowrap;
+        font-size:11px;
+        font-family:'Hiragino Kaku Gothic Pro','Meiryo','MS Gothic',sans-serif;
+        font-weight:600;
+        color:#1a1a1a;
+        text-shadow:
+          -1px -1px 0 #fff,
+           1px -1px 0 #fff,
+          -1px  1px 0 #fff,
+           1px  1px 0 #fff,
+           0    0   3px #fff;
+        pointer-events:none;
+        line-height:1.1;
+      ">${label}</span>
+    </div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+const C = { family:'#2e9e6b', work:'#2c72c7', both:'#c94f7c' };
+
+function popup(name, type) {
+  return `<div class="pop-title">${name}</div><div class="pop-type">${type}</div>`;
+}
+
+// =====================
+//  WORLD MAP
+// =====================
+const mapW = L.map('map-world', { zoomControl: true }).setView([30, 10], 2);
+L.tileLayer(tileUrl, { attribution: tileAttr, subdomains: 'abcd', maxZoom: 18 }).addTo(mapW);
+
+const worldPlaces = [
+  // Asia
+  { lat:34.6851, lng:135.833,  name:'日本（奈良・出発地）',              label:'奈良',            type:'自宅',               color:C.both },
+  { lat:1.3521,  lng:103.8198, name:'シンガポール',                       label:'シンガポール',     type:'家族旅行',            color:C.family },
+  { lat:22.3193, lng:114.1694, name:'香港 (2回)',                         label:'香港',            type:'家族旅行',            color:C.family },
+  { lat:22.1987, lng:113.5439, name:'マカオ',                             label:'マカオ',           type:'家族旅行',            color:C.family },
+  { lat:25.0330, lng:121.5654, name:'台北',   label:'台北', type:'出張',     color:C.work },
+  { lat:38.9140, lng:121.6147, name:'大連',   label:'大連', type:'出張',     color:C.work },
+  { lat:39.9042, lng:116.4074, name:'北京',   label:'北京', type:'出張',     color:C.work },
+  { lat:36.0671, lng:120.3826, name:'青島',   label:'青島', type:'出張',     color:C.work },
+  { lat:31.2304, lng:121.4737, name:'上海',   label:'上海', type:'出張',     color:C.work },
+  { lat:23.1291, lng:113.2644, name:'広州',   label:'広州', type:'出張',     color:C.work },
+  { lat:23.0207, lng:113.7517, name:'東莞',   label:'東莞', type:'出張',     color:C.work },
+  { lat:30.5928, lng:114.3055, name:'武漢',   label:'武漢', type:'出張',     color:C.work },
+  { lat:30.5728, lng:104.0668, name:'成都',   label:'成都', type:'出張',     color:C.work },
+  // Oceania
+  { lat:-33.8688,lng:151.2093, name:'シドニー',                           label:'シドニー',         type:'家族旅行 (2006)',      color:C.family },
+  // Pacific
+  { lat:21.3069, lng:-157.858, name:'ハワイ (5回)',                       label:'ハワイ×5',         type:'家族旅行 (1999他)',    color:C.family },
+  { lat:13.4443, lng:144.7937, name:'グアム',                             label:'グアム',           type:'家族旅行',            color:C.family },
+  // Europe
+  { lat:51.5074, lng:-0.1278,  name:'ロンドン',                           label:'ロンドン',         type:'家族旅行 (1995)',      color:C.family },
+  { lat:48.8566, lng:2.3522,   name:'パリ',                               label:'パリ',            type:'家族旅行 (1995)',      color:C.family },
+  { lat:46.9481, lng:7.4474,   name:'スイス（チューリッヒ・インターラーケン）', label:'スイス',          type:'家族旅行 (1993)',      color:C.family },
+  { lat:41.9028, lng:12.4964,  name:'ローマ',                             label:'ローマ',           type:'家族旅行 (1993/1995)', color:C.family },
+  { lat:43.7696, lng:11.2558,  name:'フィレンツェ',                       label:'フィレンツェ',      type:'家族旅行 (1993)',      color:C.family },
+  { lat:45.4408, lng:12.3155,  name:'ヴェネツィア',                       label:'ヴェネツィア',      type:'家族旅行 (1993)',      color:C.family },
+  { lat:45.4654, lng:9.1859,   name:'ミラノ',                             label:'ミラノ',           type:'家族旅行 (1993)',      color:C.family },
+  { lat:50.8503, lng:4.3517,   name:'ベルギー（アントワープ）',             label:'ベルギー',         type:'家族旅行',            color:C.family },
+  { lat:36.7213, lng:-4.4213,  name:'スペイン（マラガ）',                  label:'マラガ',           type:'家族旅行',            color:C.family },
+  // Americas
+  { lat:21.1619, lng:-86.8515, name:'カンクーン',                         label:'カンクーン',        type:'家族旅行 (1994)',      color:C.family },
+  { lat:19.4326, lng:-99.1332, name:'メキシコシティ',                      label:'メキシコシティ',    type:'出張',               color:C.work },
+  { lat:8.9936,  lng:-79.5197, name:'パナマシティ',                        label:'パナマ',            type:'出張',               color:C.work },
+  { lat:25.0574, lng:-77.3963, name:'バハマ',                             label:'バハマ',           type:'家族旅行 (1992/93)',   color:C.family },
+  { lat:24.5551, lng:-81.7800, name:'キーウエスト',                       label:'キーウエスト',      type:'家族旅行 (1992)',      color:C.family },
+];
+
+worldPlaces.forEach(p => {
+  L.marker([p.lat, p.lng], { icon: makeLargeIcon(p.color, p.label || p.name) })
+    .addTo(mapW)
+    .bindPopup(popup(p.name, p.type));
+});
+
+// =====================
+//  USA / CANADA MAP
+// =====================
+const mapUS = L.map('map-usa', { zoomControl: true }).setView([40, -95], 4);
+L.tileLayer(tileUrl, { attribution: tileAttr, subdomains: 'abcd', maxZoom: 18 }).addTo(mapUS);
+
+const usaPlaces = [
+  // West Coast
+  { lat:49.2827, lng:-123.1207, name:'バンクーバー',             label:'バンクーバー',      type:'出張',                   color:C.work },
+  { lat:47.6062, lng:-122.3321, name:'シアトル',                 label:'シアトル',          type:'出張',                   color:C.work },
+  { lat:45.5231, lng:-122.6765, name:'ポートランド',              label:'ポートランド',       type:'出張',                   color:C.work },
+  { lat:38.5816, lng:-121.4944, name:'サクラメント',              label:'サクラメント',       type:'出張',                   color:C.work },
+  { lat:37.7749, lng:-122.4194, name:'サンフランシスコ',           label:'SF',               type:'出張 (2010)',             color:C.work },
+  { lat:37.3382, lng:-121.8863, name:'サンノゼ',                 label:'サンノゼ',           type:'出張',                   color:C.work },
+  { lat:34.0522, lng:-118.2437, name:'ロサンゼルス',              label:'LA',               type:'出張 (1987/2010)',        color:C.work },
+  { lat:32.7157, lng:-117.1611, name:'サンジェゴ',               label:'サンジェゴ',         type:'出張',                   color:C.work },
+  // Southwest
+  { lat:36.1699, lng:-115.1398, name:'ラスベガス',               label:'ラスベガス',         type:'出張',                   color:C.work },
+  { lat:33.4484, lng:-112.0740, name:'フェニックス',              label:'フェニックス',       type:'出張',                   color:C.work },
+  { lat:32.2226, lng:-110.9747, name:'ツーソン',                 label:'ツーソン',           type:'出張',                   color:C.work },
+  // Mountain
+  { lat:39.7392, lng:-104.9903, name:'デンバー',                 label:'デンバー',           type:'出張',                   color:C.work },
+  // Canadian Rockies
+  { lat:51.1784, lng:-115.5708, name:'カナディアンロッキー',       label:'カナダロッキー',      type:'家族旅行 (1995)',          color:C.family },
+  // Plains
+  { lat:43.5446, lng:-96.7311,  name:'スーフォール',              label:'スーフォール',        type:'出張',                   color:C.work },
+  { lat:39.0997, lng:-94.5786,  name:'カンサスシティ',             label:'カンサスシティ',      type:'出張',                   color:C.work },
+  { lat:38.6270, lng:-90.1994,  name:'セントルイス',              label:'セントルイス',        type:'出張',                   color:C.work },
+  // Midwest
+  { lat:44.9778, lng:-93.2650,  name:'ミネアポリス',              label:'ミネアポリス',        type:'出張',                   color:C.work },
+  { lat:41.8781, lng:-87.6298,  name:'シカゴ',                   label:'シカゴ',             type:'出張',                   color:C.work },
+  { lat:43.0389, lng:-87.9065,  name:'ミルウォーキー',             label:'ミルウォーキー',      type:'出張',                   color:C.work },
+  { lat:39.7684, lng:-86.1581,  name:'インディアナポリス',          label:'インディアナポリス',  type:'出張',                   color:C.work },
+  { lat:42.3314, lng:-83.0458,  name:'デトロイト',                label:'デトロイト',          type:'出張',                   color:C.work },
+  { lat:39.1031, lng:-84.5120,  name:'シンシナティ',              label:'シンシナティ',        type:'出張',                   color:C.work },
+  { lat:39.7589, lng:-84.1916,  name:'デイトン',                 label:'デイトン',            type:'出張',                   color:C.work },
+  { lat:41.4993, lng:-81.6944,  name:'クリーブランド',             label:'クリーブランド',      type:'出張',                   color:C.work },
+  { lat:40.4406, lng:-79.9959,  name:'ピッツバーグ',              label:'ピッツバーグ',        type:'出張',                   color:C.work },
+  // South
+  { lat:32.7767, lng:-96.7970,  name:'ダラス',                   label:'ダラス',             type:'出張',                   color:C.work },
+  { lat:29.7604, lng:-95.3698,  name:'ヒューストン',              label:'ヒューストン',        type:'出張',                   color:C.work },
+  { lat:35.1495, lng:-90.0490,  name:'メンフィス',               label:'メンフィス',          type:'出張',                   color:C.work },
+  { lat:29.9511, lng:-90.0715,  name:'ニューオリンズ',            label:'ニューオリンズ',       type:'出張',                   color:C.work },
+  // Southeast
+  { lat:35.2271, lng:-80.8431,  name:'シャーロット',              label:'シャーロット',        type:'出張',                   color:C.work },
+  { lat:35.7796, lng:-78.6382,  name:'ラレイ=デューラム',          label:'ラレイ',             type:'出張',                   color:C.work },
+  { lat:27.9506, lng:-82.4572,  name:'タンパ',                   label:'タンパ',             type:'家族旅行/出張',            color:C.both },
+  { lat:28.5383, lng:-81.3792,  name:'オーランド',               label:'オーランド',          type:'家族旅行/出張 (1992/1995)',color:C.both },
+  { lat:25.7617, lng:-80.1918,  name:'マイアミ',                 label:'マイアミ',            type:'家族旅行/出張 (1992)',     color:C.both },
+  { lat:24.5551, lng:-81.7800,  name:'キーウエスト',              label:'キーウエスト',        type:'家族旅行 (1992)',          color:C.family },
+  // Northeast
+  { lat:38.9072, lng:-77.0369,  name:'ワシントンDC',             label:'ワシントンDC',        type:'出張',                   color:C.work },
+  { lat:39.2904, lng:-76.6122,  name:'ボルティモア',              label:'ボルティモア',        type:'出張',                   color:C.work },
+  { lat:39.9526, lng:-75.1652,  name:'フィラデルフィア',           label:'フィラデルフィア',    type:'出張',                   color:C.work },
+  { lat:40.7128, lng:-74.0060,  name:'ニューヨーク・NJ',          label:'NY',               type:'家族旅行/出張 (1987/2002)', color:C.both },
+  { lat:42.3601, lng:-71.0589,  name:'ボストン',                 label:'ボストン',            type:'家族旅行/出張 (1987)',     color:C.both },
+  { lat:44.4759, lng:-73.2121,  name:'バーモント（スキー）',       label:'バーモント',          type:'家族旅行',                color:C.family },
+  { lat:40.2732, lng:-76.8867,  name:'ハーシーパーク',            label:'ハーシーパーク',      type:'家族旅行 (1995)',          color:C.family },
+  // Canada East
+  { lat:45.4215, lng:-75.6919,  name:'オタワ',                   label:'オタワ',             type:'出張',                   color:C.work },
+  { lat:45.5017, lng:-73.5673,  name:'モントリオール',             label:'モントリオール',      type:'家族旅行 (1991)',          color:C.family },
+  { lat:46.8139, lng:-71.2080,  name:'ケベック',                 label:'ケベック',            type:'家族旅行 (1991)',          color:C.family },
+  { lat:46.0575, lng:-74.6070,  name:'ローレンシャン高原',         label:'ローレンシャン',      type:'家族旅行 (1992)',          color:C.family },
+  { lat:43.0896, lng:-79.0849,  name:'ナイヤガラ',               label:'ナイヤガラ',           type:'家族旅行 (1991)',          color:C.family },
+  { lat:42.8864, lng:-78.8784,  name:'バッファロー',              label:'バッファロー',        type:'家族旅行/出張',            color:C.both },
+  { lat:40.7799, lng:-74.0566,  name:'シーコーカス (NJ)',          label:'Secaucus',           type:'出張',                   color:C.work },
+  { lat:40.8501, lng:-73.9701,  name:'フォートリー (NJ)',           label:'Fort Lee',           type:'出張',                   color:C.work },
+  { lat:39.3643, lng:-74.4229,  name:'アトランティックシティ',      label:'Atlantic City',      type:'出張',                   color:C.work },
+  { lat:41.3915, lng:-73.9571,  name:'ウェストポイント',            label:'West Point',         type:'家族旅行',                color:C.family },
+];
+
+usaPlaces.forEach(p => {
+  L.marker([p.lat, p.lng], { icon: makeLargeIcon(p.color, p.label || p.name) })
+    .addTo(mapUS)
+    .bindPopup(popup(p.name, p.type));
+});
+</script>
+</body>
+</html>
+

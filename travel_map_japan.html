@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訪問地マップ — 日本</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Georgia', serif;
+    background: #f4f0eb;
+    color: #2c2c2c;
+  }
+  h1 {
+    text-align: center;
+    padding: 18px 0 4px;
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    color: #1a1a1a;
+    font-weight: normal;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 10px;
+    letter-spacing: 0.05em;
+  }
+  #map-japan {
+    width: 96%;
+    margin: 0 auto 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    height: 600px;
+  }
+  .map-label {
+    width: 96%;
+    margin: 0 auto 6px;
+    font-size: 14px;
+    color: #444;
+    letter-spacing: 0.04em;
+    border-left: 3px solid #888;
+    padding-left: 8px;
+  }
+  .legend {
+    width: 96%;
+    margin: 0 auto 14px;
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: #555;
+    padding-left: 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-dot {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 1.5px solid rgba(0,0,0,0.15);
+    flex-shrink: 0;
+  }
+  footer {
+    text-align: center;
+    padding: 10px 0 18px;
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 0.05em;
+  }
+  .leaflet-popup-content-wrapper {
+    border-radius: 6px;
+    font-family: 'Georgia', serif;
+    font-size: 13px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  }
+  .pop-title { font-weight: bold; font-size: 14px; margin-bottom: 3px; color: #111; }
+  .pop-type  { font-size: 12px; color: #666; }
+</style>
+</head>
+<body>
+
+<h1>私の訪問地マップ — 日本</h1>
+<div class="subtitle">仕事・家族旅行で訪れた場所</div>
+
+<div class="map-label">🗾 日本国内</div>
+<div id="map-japan"></div>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2e9e6b"></div>家族旅行</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2c72c7"></div>出張</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#c94f7c"></div>両方（自宅）</div>
+</div>
+
+<footer>各ピンをクリックで詳細表示</footer>
+
+<script>
+const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const tileAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
+
+const C = { family:'#2e9e6b', work:'#2c72c7', both:'#c94f7c' };
+
+function makeLargeIcon(color, label) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative; display:inline-block;">
+      <div style="
+        width:14px; height:14px; border-radius:50%;
+        background:${color};
+        border:2.5px solid rgba(255,255,255,0.95);
+        box-shadow:0 1px 5px rgba(0,0,0,0.4);
+      "></div>
+      <span style="
+        position:absolute;
+        left:18px; top:-1px;
+        white-space:nowrap;
+        font-size:11px;
+        font-family:'Hiragino Kaku Gothic Pro','Meiryo','MS Gothic',sans-serif;
+        font-weight:600;
+        color:#1a1a1a;
+        text-shadow:
+          -1px -1px 0 #fff,
+           1px -1px 0 #fff,
+          -1px  1px 0 #fff,
+           1px  1px 0 #fff,
+           0    0   3px #fff;
+        pointer-events:none;
+        line-height:1.1;
+      ">${label}</span>
+    </div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+function popup(name, type) {
+  return `<div class="pop-title">${name}</div><div class="pop-type">${type}</div>`;
+}
+
+const mapJ = L.map('map-japan', { zoomControl: true }).setView([36.5, 136], 5);
+L.tileLayer(tileUrl, { attribution: tileAttr, subdomains: 'abcd', maxZoom: 18 }).addTo(mapJ);
+
+const japanPlaces = [
+  // 自宅
+  { lat:34.6851, lng:135.8330, name:'奈良（自宅）',   label:'奈良★', type:'自宅', color:C.both },
+
+  // 出張
+  { lat:43.0618, lng:141.3545, name:'札幌',           label:'札幌',   type:'出張', color:C.work },
+  { lat:39.7186, lng:140.1023, name:'秋田',           label:'秋田',   type:'出張', color:C.work },
+  { lat:38.2682, lng:140.8694, name:'仙台',           label:'仙台',   type:'出張', color:C.work },
+  { lat:35.6895, lng:139.6917, name:'東京',           label:'東京',   type:'出張', color:C.work },
+  { lat:35.6264, lng:139.3461, name:'八王子',         label:'八王子', type:'出張', color:C.work },
+  { lat:35.4660, lng:139.6223, name:'新横浜',         label:'新横浜', type:'出張', color:C.work },
+  { lat:34.7303, lng:137.3833, name:'浜松',           label:'浜松',   type:'出張', color:C.work },
+  { lat:35.1709, lng:136.8815, name:'名古屋',         label:'名古屋', type:'出張', color:C.work },
+  { lat:35.3912, lng:136.7223, name:'岐阜',           label:'岐阜',   type:'出張', color:C.work },
+  { lat:35.0045, lng:135.8686, name:'滋賀（大津）',   label:'滋賀',   type:'出張', color:C.work },
+  { lat:34.6937, lng:135.5023, name:'大阪',           label:'大阪',   type:'出張', color:C.work },
+  { lat:35.0116, lng:135.7681, name:'京都',           label:'京都',   type:'出張', color:C.work },
+  { lat:32.8031, lng:130.7079, name:'熊本',           label:'熊本',   type:'出張', color:C.work },
+  { lat:33.5904, lng:130.4017, name:'福岡',           label:'福岡',   type:'出張', color:C.work },
+  { lat:31.5966, lng:130.5571, name:'鹿児島',         label:'鹿児島', type:'出張', color:C.work },
+  { lat:40.8244, lng:140.7400, name:'青森',           label:'青森',   type:'出張', color:C.work },
+  { lat:39.7036, lng:141.1527, name:'岩手（盛岡）',   label:'岩手',   type:'出張', color:C.work },
+
+  // 家族旅行
+  { lat:36.5613, lng:136.6562, name:'金沢',           label:'金沢',   type:'家族旅行', color:C.family },
+  { lat:36.8723, lng:137.5542, name:'宇奈月温泉',     label:'宇奈月', type:'家族旅行', color:C.family },
+  { lat:34.7500, lng:135.2333, name:'六甲山',         label:'六甲山', type:'家族旅行', color:C.family },
+  { lat:36.9722, lng:139.9806, name:'那須高原',       label:'那須高原',type:'家族旅行', color:C.family },
+  { lat:41.7686, lng:140.7288, name:'函館',           label:'函館',   type:'家族旅行', color:C.family },
+  { lat:42.8086, lng:140.6870, name:'ニセコ',         label:'ニセコ', type:'家族旅行', color:C.family },
+  { lat:42.9849, lng:144.3820, name:'釧路',           label:'釧路',   type:'家族旅行', color:C.family },
+  { lat:43.7706, lng:142.3650, name:'旭川',           label:'旭川',   type:'家族旅行', color:C.family },
+  { lat:35.6283, lng:134.8239, name:'城崎温泉',       label:'城崎',   type:'家族旅行', color:C.family },
+  { lat:34.2133, lng:133.8233, name:'金毘羅山',       label:'金毘羅山',type:'家族旅行', color:C.family },
+  { lat:34.2260, lng:135.1675, name:'和歌山',         label:'和歌山', type:'家族旅行', color:C.family },
+];
+
+japanPlaces.forEach(p => {
+  L.marker([p.lat, p.lng], { icon: makeLargeIcon(p.color, p.label) })
+    .addTo(mapJ)
+    .bindPopup(popup(p.name, p.type));
+});
+</script>
+</body>
+</html>
